@@ -1,0 +1,59 @@
+# Install and set up necessary packages and dependencies
+!pip install selenium
+!apt-get update
+!apt install chromium-chromedriver
+import sys
+sys.path.insert(0,'/usr/lib/chromium-browser/chromedriver')
+
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from bs4 import BeautifulSoup
+import pandas as pd
+
+# Set up Chrome options for Selenium
+chrome_options = Options()
+chrome_options.add_argument('--headless')
+chrome_options.add_argument('--no-sandbox')
+chrome_options.add_argument('--disable-dev-shm-usage')
+
+# Initialize the Chrome WebDriver with the specified options
+driver = webdriver.Chrome(options=chrome_options)
+
+# Fetch the Web Page
+url = 'https://news.google.com/search?q=oil%20prices'
+driver.get(url)
+
+# Get the page source and close the browser
+html = driver.page_source
+driver.quit()
+
+# Parse the Web Page using BeautifulSoup
+soup = BeautifulSoup(html, 'html.parser')
+articles = soup.find_all('article')
+
+# Extract the Necessary Information
+news_data = []
+base_url = 'https://news.google.com'
+for article in articles:
+    # Extracting the title and link
+    title_link_element = article.find('a', class_='JtKRv', href=True)
+    title = title_link_element.text.strip() if title_link_element else "No Title"
+    link = base_url + title_link_element['href'][1:] if title_link_element else "No Link"
+
+    # Extracting the date
+    time_element = article.find('time')
+    date = time_element['datetime'] if time_element and 'datetime' in time_element.attrs else time_element.text.strip() if time_element else "No Date"
+
+    news_data.append([title, link, date])
+
+# Store the Data in a DataFrame
+df = pd.DataFrame(news_data, columns=['Title', 'Link', 'Date'])
+csv_file = 'google_news_oil_prices.csv'
+df.to_csv(csv_file, index=False)
+
+# Download the file to your computer (only works in Google Colab)
+try:
+    from google.colab import files
+    files.download(csv_file)
+except ImportError:
+    print("The files module is not available. This code is not running in Google Colab.")
